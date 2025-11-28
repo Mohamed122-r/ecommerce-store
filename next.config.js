@@ -5,7 +5,11 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  distDir: 'out'
+  distDir: 'dist',
+  assetPrefix: '',
+  env: {
+    NEXT_PUBLIC_API_URL: 'https://mohamedalamin.wuaze.com/api',
+  }
 }
 
 module.exports = nextConfig
