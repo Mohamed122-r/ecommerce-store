@@ -10,68 +10,42 @@ export default function Products() {
   const [debugInfo, setDebugInfo] = useState([])
 
   useEffect(() => {
-    fetchRealData()
+    fetchDataThroughProxy()
   }, [])
 
-  const fetchRealData = async () => {
+  const fetchDataThroughProxy = async () => {
     setLoading(true)
-    setDebugInfo(['🚀 بدء جلب البيانات من الخادم...'])
+    setDebugInfo(['🚀 بدء جلب البيانات عبر Proxy...'])
     
-    // روابط API التي نعرف أنها تعمل
-    const endpoints = [
-      {
-        url: 'https://mohamedalamin.wuaze.com/api/real-products',
-        name: 'API المنتجات الجديد'
-      },
-      {
-        url: 'https://mohamedalamin.wuaze.com/api/products', 
-        name: 'API المنتجات الرئيسي'
-      },
-      {
-        url: 'https://mohamedalamin.wuaze.com/api/test',
-        name: 'API الاختبار'
+    try {
+      setDebugInfo(prev => [...prev, '🔗 جاري الاتصال عبر /api/products...'])
+      
+      // استخدام Next.js API Route كـ Proxy
+      const response = await fetch('/api/products')
+      
+      if (!response.ok) {
+        throw new Error(`فشل Proxy: ${response.status}`)
       }
-    ]
-
-    for (const endpoint of endpoints) {
-      try {
-        setDebugInfo(prev => [...prev, `🔗 جاري تجربة: ${endpoint.name}`])
-        console.log(`🔄 محاولة ${endpoint.name}: ${endpoint.url}`)
-        
-        const response = await fetch(endpoint.url)
-        console.log(`📡 حالة ${endpoint.name}:`, response.status)
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log(`✅ استجابة ${endpoint.name}:`, data)
-          
-          if (endpoint.url.includes('test')) {
-            // إذا كان API الاختبار
-            setDebugInfo(prev => [...prev, `✅ الخادم يعمل: ${data.message}`])
-            continue
-          }
-          
-          if (data.status === 'success' && data.data && data.data.length > 0) {
-            setProducts(data.data)
-            setDataSource(`✅ ${endpoint.name}`)
-            setError('')
-            setDebugInfo(prev => [...prev, `🎉 نجاح! تم جلب ${data.data.length} منتج من قاعدة البيانات`])
-            setLoading(false)
-            return
-          } else {
-            setDebugInfo(prev => [...prev, `⚠️ ${endpoint.name}: البيانات فارغة`])
-          }
-        } else {
-          setDebugInfo(prev => [...prev, `❌ ${endpoint.name}: فشل (${response.status})`])
-        }
-      } catch (err) {
-        setDebugInfo(prev => [...prev, `❌ ${endpoint.name}: ${err.message}`])
+      
+      const data = await response.json()
+      console.log('📦 بيانات من Proxy:', data)
+      
+      if (data.status === 'success' && data.data) {
+        setProducts(data.data)
+        setDataSource(`✅ ${data.source || 'بيانات حقيقية عبر Proxy'}`)
+        setError('')
+        setDebugInfo(prev => [...prev, `🎉 نجاح! ${data.data.length} منتج من قاعدة البيانات`])
+      } else {
+        throw new Error('بيانات غير متوقعة من Proxy')
       }
+      
+    } catch (err) {
+      console.error('❌ خطأ في Proxy:', err)
+      setDebugInfo(prev => [...prev, `❌ فشل Proxy: ${err.message}`])
+      useBackupData()
+    } finally {
+      setLoading(false)
     }
-
-    // إذا فشلت جميع المحاولات
-    setDebugInfo(prev => [...prev, '💾 استخدام البيانات الاحتياطية...'])
-    useBackupData()
   }
 
   const useBackupData = () => {
@@ -110,16 +84,15 @@ export default function Products() {
     
     setProducts(backupProducts)
     setDataSource('💾 بيانات احتياطية')
-    setError('تعذر الاتصال بقاعدة البيانات الحقيقية')
+    setError('تعذر الاتصال بقاعدة البيانات عبر Proxy')
     setDebugInfo(prev => [...prev, '✅ تم تحميل 3 منتج من البيانات الاحتياطية'])
-    setLoading(false)
   }
 
   const retryConnection = () => {
     setLoading(true)
     setError('')
     setDebugInfo(['🔄 إعادة محاولة الاتصال...'])
-    fetchRealData()
+    fetchDataThroughProxy()
   }
 
   return (
@@ -138,16 +111,24 @@ export default function Products() {
           {/* لوحة التحكم */}
           <div style={styles.controlPanel}>
             <div style={styles.status}>
-              <strong>الحالة:</strong> {loading ? '🔄 جاري التحميل...' : dataSource.includes('✅') ? '✅ متصل' : '❌ غير متصل'}
+              <strong>الحالة:</strong> {loading ? '🔄 جاري التحميل...' : dataSource.includes('✅') ? '✅ متصل' : '💾 احتياطي'}
             </div>
             <div style={styles.source}>
               <strong>مصدر البيانات:</strong> {dataSource || 'جاري التحديد...'}
             </div>
-            {error && <div style={styles.error}>⚠️ {error}</div>}
             
-            <button onClick={retryConnection} style={styles.retryBtn}>
-              🔄 إعادة المحاولة
-            </button>
+            <div style={styles.actions}>
+              <button onClick={retryConnection} style={styles.retryBtn}>
+                🔄 إعادة المحاولة
+              </button>
+              <a 
+                href="https://mohamedalamin.wuaze.com/api/real-products" 
+                target="_blank" 
+                style={styles.testBtn}
+              >
+                🔗 اختبار API مباشرة
+              </a>
+            </div>
           </div>
 
           {/* سجل التصحيح */}
@@ -165,14 +146,18 @@ export default function Products() {
           {loading ? (
             <div style={styles.loading}>
               <div style={styles.spinner}></div>
-              <p>جاري الاتصال بخادم قاعدة البيانات...</p>
-              <p style={styles.note}>يتم محاولة الاتصال بـ: api/real-products</p>
+              <p>جاري الاتصال بقاعدة البيانات عبر Proxy...</p>
+              <p style={styles.note}>يتم استخدام Next.js API Routes لتجاوز مشكلة CORS</p>
             </div>
           ) : (
             <>
               <div style={styles.stats}>
-                <h2>📦 قائمة المنتجات</h2>
-                <p>يتم عرض {products.length} منتج {dataSource.includes('احتياطية') ? 'من البيانات الاحتياطية' : 'من قاعدة البيانات الحقيقية'}</p>
+                <h2>📦 قائمة المنتجات ({products.length})</h2>
+                <p>
+                  {dataSource.includes('✅') ? 
+                    '🎉 يتم عرض بيانات حقيقية من قاعدة البيانات!' : 
+                    '💾 يتم عرض بيانات احتياطية للعرض'}
+                </p>
               </div>
               
               <div style={styles.productsGrid}>
@@ -217,8 +202,8 @@ export default function Products() {
                       
                       <div style={styles.footer}>
                         <span style={styles.id}># {product.id}</span>
-                        <span style={dataSource.includes('احتياطية') ? styles.backup : styles.real}>
-                          {dataSource.includes('احتياطية') ? '💾 احتياطي' : '🗃️ حقيقي'}
+                        <span style={dataSource.includes('✅') ? styles.real : styles.backup}>
+                          {dataSource.includes('✅') ? '🗃️ قاعدة بيانات' : '💾 احتياطي'}
                         </span>
                       </div>
                     </div>
@@ -226,14 +211,13 @@ export default function Products() {
                 ))}
               </div>
 
-              <div style={styles.help}>
-                <h4>💡 ملاحظة:</h4>
-                <p>لرؤية البيانات الحقيقية من قاعدة البيانات، تأكد من:</p>
-                <ul>
-                  <li>وجود ملف <code>api/real-products.php</code> في الخادم</li>
-                  <li>أن قاعدة البيانات تحتوي على منتجات</li>
-                  <li>أن الـ API يعيد استجابة JSON صحيحة</li>
-                </ul>
+              <div style={styles.technicalInfo}>
+                <h4>🔧 معلومات تقنية:</h4>
+                <p>
+                  <strong>المشكلة:</strong> CORS بين Vercel (HTTPS) و InfinityFree (HTTP)<br/>
+                  <strong>الحل:</strong> استخدام Next.js API Routes كـ Proxy Server<br/>
+                  <strong>الحالة:</strong> {dataSource.includes('✅') ? '✅ يعمل عبر Proxy' : '❌ يحتاج إصلاح'}
+                </p>
               </div>
             </>
           )}
@@ -282,20 +266,22 @@ const styles = {
     padding: '1.5rem',
     borderRadius: '12px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    marginBottom: '1rem',
-    textAlign: 'center'
+    marginBottom: '1rem'
   },
   status: {
     fontSize: '1.1rem',
-    marginBottom: '0.5rem'
+    marginBottom: '0.5rem',
+    textAlign: 'center'
   },
   source: {
-    marginBottom: '0.5rem'
+    marginBottom: '1rem',
+    textAlign: 'center'
   },
-  error: {
-    color: '#dc2626',
-    fontWeight: 'bold',
-    marginBottom: '1rem'
+  actions: {
+    display: 'flex',
+    gap: '1rem',
+    justifyContent: 'center',
+    flexWrap: 'wrap'
   },
   retryBtn: {
     backgroundColor: '#3b82f6',
@@ -304,6 +290,14 @@ const styles = {
     padding: '0.75rem 1.5rem',
     borderRadius: '6px',
     cursor: 'pointer',
+    fontWeight: 'bold'
+  },
+  testBtn: {
+    backgroundColor: '#10b981',
+    color: 'white',
+    padding: '0.75rem 1.5rem',
+    borderRadius: '6px',
+    textDecoration: 'none',
     fontWeight: 'bold'
   },
   debugPanel: {
@@ -354,8 +348,7 @@ const styles = {
     backgroundColor: 'white',
     borderRadius: '12px',
     boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    overflow: 'hidden',
-    transition: 'transform 0.2s'
+    overflow: 'hidden'
   },
   productImage: {
     position: 'relative',
@@ -463,7 +456,7 @@ const styles = {
     fontSize: '0.8rem',
     fontWeight: '500'
   },
-  help: {
+  technicalInfo: {
     backgroundColor: '#f0f9ff',
     padding: '1.5rem',
     borderRadius: '12px',
@@ -477,12 +470,6 @@ if (typeof document !== 'undefined') {
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
-    }
-    code {
-      background: #f3f4f6;
-      padding: 0.2rem 0.4rem;
-      border-radius: 4px;
-      font-family: monospace;
     }
   `
   document.head.appendChild(style)
