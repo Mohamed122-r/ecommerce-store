@@ -7,30 +7,87 @@ export default function Products() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // بيانات تجريبية مؤقتة
+  const sampleProducts = [
+    {
+      id: 1,
+      name: "كفر آيفون 15 برو - شفاف",
+      price: 49.99,
+      sale_price: 39.99,
+      category: { name: "كفرات وحمايات" },
+      stock: 50,
+      sku: "CASE-IP15P-CLEAR",
+      description: "كفر حماية شفاف مخصص لآيفون 15 برو، يحمي هاتفك مع الحفاظ على المظهر الأصلي."
+    },
+    {
+      id: 2,
+      name: "شاحن سريع 20 واط",
+      price: 79.99,
+      sale_price: null,
+      category: { name: "شواحن" },
+      stock: 30,
+      sku: "CHG-20W-FAST",
+      description: "شاحن سريع 20 واط بشهادة PD، يشحن هاتفك بسرعة وأمان."
+    },
+    {
+      id: 3,
+      name: "سماعات لاسلكية بلوتوث",
+      price: 129.99,
+      sale_price: 99.99,
+      category: { name: "سماعات" },
+      stock: 25,
+      sku: "EAR-WLS-BT",
+      description: "سماعات لاسلكية عالية الجودة، بطارية طويلة الأمد وجودة صوت متميزة."
+    },
+    {
+      id: 4,
+      name: "حافظة أذن سلكية",
+      price: 29.99,
+      sale_price: 19.99,
+      category: { name: "إكسسوارات متنوعة" },
+      stock: 100,
+      sku: "EAR-CASE-Wired",
+      description: "حافظة أنيقة للسماعات السلكية، تحمي سماعاتك من التلف."
+    }
+  ]
+
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        console.log('🔄 بدء جلب البيانات...')
-        const response = await fetch('https://mohamedalamin.wuaze.com/api/products')
-        console.log('📡 حالة الاستجابة:', response.status)
+        console.log('🔄 محاولة الاتصال بالـ API...')
         
-        const rawData = await response.text()
-        console.log('📦 البيانات الخام:', rawData)
+        // استخدم fetch مع mode: 'no-cors' للتحايل على CORS مؤقتاً
+        const response = await fetch('https://mohamedalamin.wuaze.com/api/products', {
+          method: 'GET',
+          mode: 'no-cors', // هذا يحل مشكلة CORS مؤقتاً
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        })
         
-        const data = JSON.parse(rawData)
-        console.log('📊 البيانات بعد التحليل:', data)
+        console.log('📡 حالة الاستجابة:', response)
         
-        if (data.status === 'success' && data.data) {
-          console.log('✅ عدد المنتجات:', data.data.length)
-          setProducts(data.data)
-          setError('')
-        } else {
-          console.log('❌ بيانات غير متوقعة:', data)
-          setError('بيانات غير متوقعة من الخادم')
+        // إذا نجح الـ API، استخدم البيانات الحقيقية
+        if (response.ok) {
+          const data = await response.json()
+          console.log('✅ البيانات الحقيقية:', data)
+          if (data.status === 'success') {
+            setProducts(data.data)
+            setError('')
+            return
+          }
         }
+        
+        // إذا فشل الـ API، استخدم البيانات التجريبية
+        console.log('🔄 استخدام البيانات التجريبية...')
+        setProducts(sampleProducts)
+        setError('الاتصال بالخادم: استخدام بيانات تجريبية')
+        
       } catch (error) {
-        console.error('❌ خطأ في جلب البيانات:', error)
-        setError('فشل في تحليل البيانات: ' + error.message)
+        console.error('❌ خطأ في الاتصال:', error)
+        // في حالة الخطأ، استخدم البيانات التجريبية
+        setProducts(sampleProducts)
+        setError('تعذر الاتصال بالخادم: استخدام بيانات تجريبية')
       } finally {
         setLoading(false)
       }
@@ -38,21 +95,6 @@ export default function Products() {
 
     fetchProducts()
   }, [])
-
-  // دالة لإصلاح الترميز العربي
-  const fixArabicEncoding = (text) => {
-    if (!text) return 'بدون وصف'
-    
-    try {
-      // إذا كان النص يحتوي على رموز Unicode
-      if (text.includes('\\u')) {
-        return JSON.parse(`"${text}"`)
-      }
-      return text
-    } catch {
-      return text
-    }
-  }
 
   return (
     <>
@@ -68,99 +110,85 @@ export default function Products() {
 
         <main style={styles.main}>
           {error && (
-            <div style={styles.error}>
-              <h3>⚠️ {error}</h3>
-              <p>افتح Console للمزيد من المعلومات</p>
+            <div style={styles.warning}>
+              <h3>ℹ️ {error}</h3>
+              <p>البيانات المعروضة تجريبية للعرض</p>
             </div>
           )}
 
-          {loading && (
+          {loading ? (
             <div style={styles.loading}>
               <div style={styles.spinner}></div>
               <p>جاري تحميل المنتجات...</p>
             </div>
-          )}
-
-          {!loading && !error && (
+          ) : (
             <>
               <div style={styles.infoBox}>
                 <p>📱 عرض {products.length} منتج</p>
-                <p style={styles.debugInfo}>
-                  آخر تحديث: {new Date().toLocaleTimeString('ar-SA')}
+                <p style={styles.note}>
+                  {error ? 'بيانات تجريبية للعرض' : 'بيانات حقيقية من الخادم'}
                 </p>
               </div>
               
-              {products.length === 0 ? (
-                <div style={styles.empty}>
-                  <h3>📭 لا توجد منتجات</h3>
-                  <p>لم يتم العثور على منتجات في قاعدة البيانات</p>
-                  <button 
-                    onClick={() => window.location.reload()}
-                    style={styles.retryButton}
-                  >
-                    إعادة تحميل
-                  </button>
-                </div>
-              ) : (
-                <div style={styles.productsGrid}>
-                  {products.map((product, index) => (
-                    <div key={product.id || index} style={styles.productCard}>
-                      <div style={styles.productImage}>
-                        {product.sale_price && (
-                          <span style={styles.saleBadge}>خصم</span>
-                        )}
-                        <div style={styles.imagePlaceholder}>
-                          {product.name ? product.name.charAt(0) : '?'}
-                        </div>
-                      </div>
-                      
-                      <div style={styles.productInfo}>
-                        <h3 style={styles.productName}>
-                          {product.name ? fixArabicEncoding(product.name) : 'منتج بدون اسم'}
-                        </h3>
-                        
-                        <p style={styles.productCategory}>
-                          {product.category?.name ? fixArabicEncoding(product.category.name) : 'بدون تصنيف'}
-                        </p>
-                        
-                        <div style={styles.productPrice}>
-                          {product.sale_price ? (
-                            <>
-                              <span style={styles.currentPrice}>{product.sale_price} ر.س</span>
-                              <span style={styles.oldPrice}>{product.price} ر.س</span>
-                            </>
-                          ) : (
-                            <span style={styles.currentPrice}>
-                              {product.price ? `${product.price} ر.س` : 'السعر غير متوفر'}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div style={styles.productMeta}>
-                          <span style={
-                            product.stock > 0 ? styles.inStock : styles.outOfStock
-                          }>
-                            {product.stock > 0 ? '🟢 متوفر' : '🔴 غير متوفر'}
-                          </span>
-                          <span style={styles.sku}>
-                            {product.sku || 'بدون SKU'}
-                          </span>
-                        </div>
-
-                        {product.description && (
-                          <p style={styles.description}>
-                            {fixArabicEncoding(product.description)}
-                          </p>
-                        )}
-                        
-                        <div style={styles.debug}>
-                          <small>ID: {product.id} | المخزون: {product.stock}</small>
-                        </div>
+              <div style={styles.productsGrid}>
+                {products.map(product => (
+                  <div key={product.id} style={styles.productCard}>
+                    <div style={styles.productImage}>
+                      {product.sale_price && product.sale_price < product.price && (
+                        <span style={styles.saleBadge}>
+                          خصم {Math.round((1 - product.sale_price / product.price) * 100)}%
+                        </span>
+                      )}
+                      <div style={styles.imagePlaceholder}>
+                        📱
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    
+                    <div style={styles.productInfo}>
+                      <h3 style={styles.productName}>{product.name}</h3>
+                      
+                      <p style={styles.productCategory}>
+                        📁 {product.category?.name}
+                      </p>
+                      
+                      <div style={styles.productPrice}>
+                        {product.sale_price && product.sale_price < product.price ? (
+                          <>
+                            <span style={styles.currentPrice}>{product.sale_price} ر.س</span>
+                            <span style={styles.oldPrice}>{product.price} ر.س</span>
+                          </>
+                        ) : (
+                          <span style={styles.currentPrice}>{product.price} ر.س</span>
+                        )}
+                      </div>
+                      
+                      <div style={styles.productMeta}>
+                        <span style={product.stock > 0 ? styles.inStock : styles.outOfStock}>
+                          {product.stock > 0 ? `🟢 متوفر (${product.stock})` : '🔴 غير متوفر'}
+                        </span>
+                        <span style={styles.sku}>{product.sku}</span>
+                      </div>
+
+                      <p style={styles.description}>
+                        {product.description}
+                      </p>
+                      
+                      <div style={styles.actions}>
+                        <button style={styles.addToCartButton}>
+                          🛒 إضافة إلى السلة
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div style={styles.footerNote}>
+                <p>
+                  💡 <strong>ملاحظة:</strong> هذا متجر تجريبي. 
+                  {error && ' البيانات المعروضة تجريبية لأغراض العرض.'}
+                </p>
+              </div>
             </>
           )}
         </main>
@@ -191,7 +219,10 @@ const styles = {
     color: '#3b82f6',
     textDecoration: 'none',
     fontWeight: 'bold',
-    fontSize: '1.1rem'
+    fontSize: '1.1rem',
+    padding: '0.5rem 1rem',
+    border: '2px solid #3b82f6',
+    borderRadius: '6px'
   },
   title: {
     fontSize: '1.5rem',
@@ -199,13 +230,15 @@ const styles = {
     margin: 0
   },
   main: {
-    padding: '1rem'
+    padding: '1rem',
+    maxWidth: '1200px',
+    margin: '0 auto'
   },
-  error: {
-    backgroundColor: '#fef2f2',
-    border: '1px solid #fecaca',
-    color: '#dc2626',
-    padding: '1.5rem',
+  warning: {
+    backgroundColor: '#fffbeb',
+    border: '1px solid #fcd34d',
+    color: '#92400e',
+    padding: '1rem',
     borderRadius: '8px',
     textAlign: 'center',
     marginBottom: '1rem'
@@ -217,10 +250,10 @@ const styles = {
     marginBottom: '1.5rem',
     textAlign: 'center'
   },
-  debugInfo: {
-    fontSize: '0.75rem',
+  note: {
+    fontSize: '0.875rem',
     color: '#1e40af',
-    margin: '0.25rem 0 0 0'
+    margin: '0.5rem 0 0 0'
   },
   loading: {
     textAlign: 'center',
@@ -235,26 +268,21 @@ const styles = {
     animation: 'spin 1s linear infinite',
     margin: '0 auto 1rem'
   },
-  empty: {
-    textAlign: 'center',
-    padding: '3rem 1rem',
-    color: '#6b7280'
-  },
   productsGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr',
-    gap: '1rem'
+    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+    gap: '1.5rem'
   },
   productCard: {
     backgroundColor: 'white',
     borderRadius: '12px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
     overflow: 'hidden',
-    border: '2px solid #e5e7eb'
+    transition: 'transform 0.2s, box-shadow 0.2s'
   },
   productImage: {
     position: 'relative',
-    height: '150px',
+    height: '180px',
     backgroundColor: '#f3f4f6',
     display: 'flex',
     alignItems: 'center',
@@ -266,28 +294,20 @@ const styles = {
     left: '10px',
     backgroundColor: '#ef4444',
     color: 'white',
-    padding: '0.5rem',
+    padding: '0.5rem 0.75rem',
     borderRadius: '4px',
     fontSize: '0.75rem',
     fontWeight: 'bold'
   },
   imagePlaceholder: {
-    width: '60px',
-    height: '60px',
-    backgroundColor: '#d1d5db',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '1.5rem',
-    color: '#6b7280',
-    fontWeight: 'bold'
+    fontSize: '3rem',
+    opacity: 0.7
   },
   productInfo: {
-    padding: '1rem'
+    padding: '1.5rem'
   },
   productName: {
-    fontSize: '1.1rem',
+    fontSize: '1.2rem',
     fontWeight: '600',
     color: '#1f2937',
     marginBottom: '0.5rem',
@@ -295,23 +315,23 @@ const styles = {
   },
   productCategory: {
     color: '#3b82f6',
-    fontSize: '0.875rem',
-    marginBottom: '0.5rem',
+    fontSize: '0.9rem',
+    marginBottom: '1rem',
     fontWeight: '500'
   },
   productPrice: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    marginBottom: '0.5rem'
+    marginBottom: '1rem'
   },
   currentPrice: {
-    fontSize: '1.25rem',
+    fontSize: '1.4rem',
     fontWeight: 'bold',
     color: '#1f2937'
   },
   oldPrice: {
-    fontSize: '1rem',
+    fontSize: '1.1rem',
     color: '#9ca3af',
     textDecoration: 'line-through'
   },
@@ -319,48 +339,60 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    fontSize: '0.75rem',
+    fontSize: '0.8rem',
     color: '#6b7280',
-    marginBottom: '0.5rem'
+    marginBottom: '1rem'
   },
   inStock: {
     color: '#059669',
-    fontWeight: '500'
+    fontWeight: '500',
+    backgroundColor: '#ecfdf5',
+    padding: '0.3rem 0.6rem',
+    borderRadius: '4px'
   },
   outOfStock: {
     color: '#dc2626',
-    fontWeight: '500'
+    fontWeight: '500',
+    backgroundColor: '#fef2f2',
+    padding: '0.3rem 0.6rem',
+    borderRadius: '4px'
   },
   sku: {
     fontFamily: 'monospace',
     backgroundColor: '#f3f4f6',
-    padding: '0.2rem 0.4rem',
-    borderRadius: '4px'
+    padding: '0.3rem 0.6rem',
+    borderRadius: '4px',
+    fontSize: '0.75rem'
   },
   description: {
-    fontSize: '0.875rem',
+    fontSize: '0.9rem',
     color: '#6b7280',
-    lineHeight: '1.4',
-    margin: '0.5rem 0',
+    lineHeight: '1.5',
+    margin: '1rem 0',
     borderTop: '1px solid #f3f4f6',
-    paddingTop: '0.5rem'
+    paddingTop: '1rem'
   },
-  debug: {
-    marginTop: '0.5rem',
-    paddingTop: '0.5rem',
-    borderTop: '1px dashed #e5e7eb',
-    fontSize: '0.7rem',
-    color: '#9ca3af'
+  actions: {
+    marginTop: '1rem'
   },
-  retryButton: {
+  addToCartButton: {
+    width: '100%',
     backgroundColor: '#3b82f6',
     color: 'white',
     border: 'none',
-    padding: '0.75rem 1.5rem',
+    padding: '0.75rem',
     borderRadius: '6px',
-    cursor: 'pointer',
     fontWeight: 'bold',
-    marginTop: '1rem'
+    cursor: 'pointer',
+    fontSize: '1rem'
+  },
+  footerNote: {
+    textAlign: 'center',
+    marginTop: '2rem',
+    padding: '1rem',
+    backgroundColor: '#f3f4f6',
+    borderRadius: '8px',
+    color: '#6b7280'
   }
 }
 
@@ -371,6 +403,11 @@ if (typeof document !== 'undefined') {
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+    
+    .product-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 15px rgba(0,0,0,0.15);
     }
   `
   document.head.appendChild(style)
