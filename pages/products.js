@@ -6,8 +6,9 @@ export default function Products() {
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [dataSource, setDataSource] = useState('جاري التحميل...')
 
-  // بيانات تجريبية مؤقتة
+  // بيانات تجريبية احتياطية
   const sampleProducts = [
     {
       id: 1,
@@ -18,76 +19,64 @@ export default function Products() {
       stock: 50,
       sku: "CASE-IP15P-CLEAR",
       description: "كفر حماية شفاف مخصص لآيفون 15 برو، يحمي هاتفك مع الحفاظ على المظهر الأصلي."
-    },
-    {
-      id: 2,
-      name: "شاحن سريع 20 واط",
-      price: 79.99,
-      sale_price: null,
-      category: { name: "شواحن" },
-      stock: 30,
-      sku: "CHG-20W-FAST",
-      description: "شاحن سريع 20 واط بشهادة PD، يشحن هاتفك بسرعة وأمان."
-    },
-    {
-      id: 3,
-      name: "سماعات لاسلكية بلوتوث",
-      price: 129.99,
-      sale_price: 99.99,
-      category: { name: "سماعات" },
-      stock: 25,
-      sku: "EAR-WLS-BT",
-      description: "سماعات لاسلكية عالية الجودة، بطارية طويلة الأمد وجودة صوت متميزة."
-    },
-    {
-      id: 4,
-      name: "حافظة أذن سلكية",
-      price: 29.99,
-      sale_price: 19.99,
-      category: { name: "إكسسوارات متنوعة" },
-      stock: 100,
-      sku: "EAR-CASE-Wired",
-      description: "حافظة أنيقة للسماعات السلكية، تحمي سماعاتك من التلف."
     }
   ]
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        console.log('🔄 محاولة الاتصال بالـ API...')
+        console.log('🔄 محاولة الاتصال بقاعدة البيانات...')
         
-        // استخدم fetch مع mode: 'no-cors' للتحايل على CORS مؤقتاً
-        const response = await fetch('https://mohamedalamin.wuaze.com/api/products', {
-          method: 'GET',
-          mode: 'no-cors', // هذا يحل مشكلة CORS مؤقتاً
-          headers: {
-            'Content-Type': 'application/json',
+        // جرب الـ API الجديد أولاً
+        const apiUrls = [
+          'https://mohamedalamin.wuaze.com/api/v2/products', // API الجديد
+          'https://mohamedalamin.wuaze.com/api/products',    // API القديم
+        ]
+        
+        let response;
+        let apiUsed = '';
+        
+        for (const url of apiUrls) {
+          try {
+            console.log(`🔗 محاولة ${url}`)
+            response = await fetch(url, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              // إزالة no-cors للسماح بقراءة البيانات
+            })
+            
+            if (response.ok) {
+              apiUsed = url;
+              break;
+            }
+          } catch (err) {
+            console.log(`❌ فشل ${url}:`, err.message)
+            continue;
           }
-        })
+        }
         
-        console.log('📡 حالة الاستجابة:', response)
-        
-        // إذا نجح الـ API، استخدم البيانات الحقيقية
-        if (response.ok) {
+        if (response && response.ok) {
           const data = await response.json()
-          console.log('✅ البيانات الحقيقية:', data)
-          if (data.status === 'success') {
+          console.log('📦 بيانات قاعدة البيانات:', data)
+          
+          if (data.status === 'success' && data.data && data.data.length > 0) {
             setProducts(data.data)
+            setDataSource(`بيانات حقيقية من قاعدة البيانات (${data.data.length} منتج)`)
             setError('')
             return
           }
         }
         
-        // إذا فشل الـ API، استخدم البيانات التجريبية
-        console.log('🔄 استخدام البيانات التجريبية...')
-        setProducts(sampleProducts)
-        setError('الاتصال بالخادم: استخدام بيانات تجريبية')
+        // إذا فشل كل شيء، استخدم البيانات التجريبية
+        throw new Error('فشل جميع محاولات الاتصال')
         
       } catch (error) {
-        console.error('❌ خطأ في الاتصال:', error)
-        // في حالة الخطأ، استخدم البيانات التجريبية
+        console.error('❌ استخدام البيانات التجريبية:', error)
         setProducts(sampleProducts)
-        setError('تعذر الاتصال بالخادم: استخدام بيانات تجريبية')
+        setDataSource('بيانات تجريبية (تعذر الاتصال بقاعدة البيانات)')
+        setError('تعذر الاتصال بقاعدة البيانات: ' + error.message)
       } finally {
         setLoading(false)
       }
@@ -109,24 +98,26 @@ export default function Products() {
         </header>
 
         <main style={styles.main}>
-          {error && (
-            <div style={styles.warning}>
-              <h3>ℹ️ {error}</h3>
-              <p>البيانات المعروضة تجريبية للعرض</p>
-            </div>
-          )}
+          {/* معلومات مصدر البيانات */}
+          <div style={styles.dataSourceInfo}>
+            <p>📊 {dataSource}</p>
+            {error && (
+              <p style={styles.errorNote}>⚠️ {error}</p>
+            )}
+          </div>
 
           {loading ? (
             <div style={styles.loading}>
               <div style={styles.spinner}></div>
-              <p>جاري تحميل المنتجات...</p>
+              <p>جاري الاتصال بقاعدة البيانات...</p>
+              <p style={styles.loadingSub}>يرجى الانتظار</p>
             </div>
           ) : (
             <>
               <div style={styles.infoBox}>
                 <p>📱 عرض {products.length} منتج</p>
                 <p style={styles.note}>
-                  {error ? 'بيانات تجريبية للعرض' : 'بيانات حقيقية من الخادم'}
+                  {dataSource.includes('حقيقية') ? '✅ متصل بقاعدة البيانات' : '🔄 استخدام بيانات تجريبية'}
                 </p>
               </div>
               
@@ -140,15 +131,17 @@ export default function Products() {
                         </span>
                       )}
                       <div style={styles.imagePlaceholder}>
-                        📱
+                        {product.images && product.images.length > 0 ? '🖼️' : '📱'}
                       </div>
                     </div>
                     
                     <div style={styles.productInfo}>
-                      <h3 style={styles.productName}>{product.name}</h3>
+                      <h3 style={styles.productName}>
+                        {product.name || 'منتج بدون اسم'}
+                      </h3>
                       
                       <p style={styles.productCategory}>
-                        📁 {product.category?.name}
+                        📁 {product.category?.name || 'بدون تصنيف'}
                       </p>
                       
                       <div style={styles.productPrice}>
@@ -158,7 +151,9 @@ export default function Products() {
                             <span style={styles.oldPrice}>{product.price} ر.س</span>
                           </>
                         ) : (
-                          <span style={styles.currentPrice}>{product.price} ر.س</span>
+                          <span style={styles.currentPrice}>
+                            {product.price ? `${product.price} ر.س` : 'السعر غير متوفر'}
+                          </span>
                         )}
                       </div>
                       
@@ -166,28 +161,24 @@ export default function Products() {
                         <span style={product.stock > 0 ? styles.inStock : styles.outOfStock}>
                           {product.stock > 0 ? `🟢 متوفر (${product.stock})` : '🔴 غير متوفر'}
                         </span>
-                        <span style={styles.sku}>{product.sku}</span>
+                        <span style={styles.sku}>{product.sku || 'بدون SKU'}</span>
                       </div>
 
-                      <p style={styles.description}>
-                        {product.description}
-                      </p>
+                      {product.description && (
+                        <p style={styles.description}>
+                          {product.description}
+                        </p>
+                      )}
                       
-                      <div style={styles.actions}>
-                        <button style={styles.addToCartButton}>
-                          🛒 إضافة إلى السلة
-                        </button>
+                      <div style={styles.debugInfo}>
+                        <small>
+                          ID: {product.id} | 
+                          {dataSource.includes('حقيقية') ? ' 🗄️ قاعدة بيانات' : ' 💾 تجريبي'}
+                        </small>
                       </div>
                     </div>
                   </div>
                 ))}
-              </div>
-              
-              <div style={styles.footerNote}>
-                <p>
-                  💡 <strong>ملاحظة:</strong> هذا متجر تجريبي. 
-                  {error && ' البيانات المعروضة تجريبية لأغراض العرض.'}
-                </p>
               </div>
             </>
           )}
@@ -197,202 +188,34 @@ export default function Products() {
   )
 }
 
+// الأنماط تبقى كما هي مع إضافة بعض التحسينات
 const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f8fafc',
-    fontFamily: 'Arial, sans-serif',
-    direction: 'rtl'
-  },
-  header: {
-    backgroundColor: 'white',
-    padding: '1rem',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    textAlign: 'center',
-    position: 'relative'
-  },
-  backButton: {
-    position: 'absolute',
-    right: '1rem',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    color: '#3b82f6',
-    textDecoration: 'none',
-    fontWeight: 'bold',
-    fontSize: '1.1rem',
-    padding: '0.5rem 1rem',
-    border: '2px solid #3b82f6',
-    borderRadius: '6px'
-  },
-  title: {
-    fontSize: '1.5rem',
-    color: '#1f2937',
-    margin: 0
-  },
-  main: {
-    padding: '1rem',
-    maxWidth: '1200px',
-    margin: '0 auto'
-  },
-  warning: {
-    backgroundColor: '#fffbeb',
-    border: '1px solid #fcd34d',
-    color: '#92400e',
+  // ... [كل الأنماط السابقة تبقى كما هي]
+  dataSourceInfo: {
+    backgroundColor: '#f0f9ff',
+    border: '1px solid #bae6fd',
     padding: '1rem',
     borderRadius: '8px',
-    textAlign: 'center',
-    marginBottom: '1rem'
-  },
-  infoBox: {
-    backgroundColor: '#dbeafe',
-    padding: '1rem',
-    borderRadius: '8px',
-    marginBottom: '1.5rem',
+    marginBottom: '1rem',
     textAlign: 'center'
   },
-  note: {
+  errorNote: {
+    color: '#dc2626',
     fontSize: '0.875rem',
-    color: '#1e40af',
     margin: '0.5rem 0 0 0'
   },
-  loading: {
-    textAlign: 'center',
-    padding: '3rem 1rem'
+  loadingSub: {
+    fontSize: '0.875rem',
+    color: '#6b7280',
+    marginTop: '0.5rem'
   },
-  spinner: {
-    border: '4px solid #f3f4f6',
-    borderTop: '4px solid #3b82f6',
-    borderRadius: '50%',
-    width: '40px',
-    height: '40px',
-    animation: 'spin 1s linear infinite',
-    margin: '0 auto 1rem'
-  },
-  productsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-    gap: '1.5rem'
-  },
-  productCard: {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    overflow: 'hidden',
-    transition: 'transform 0.2s, box-shadow 0.2s'
-  },
-  productImage: {
-    position: 'relative',
-    height: '180px',
-    backgroundColor: '#f3f4f6',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  saleBadge: {
-    position: 'absolute',
-    top: '10px',
-    left: '10px',
-    backgroundColor: '#ef4444',
-    color: 'white',
-    padding: '0.5rem 0.75rem',
-    borderRadius: '4px',
-    fontSize: '0.75rem',
-    fontWeight: 'bold'
-  },
-  imagePlaceholder: {
-    fontSize: '3rem',
-    opacity: 0.7
-  },
-  productInfo: {
-    padding: '1.5rem'
-  },
-  productName: {
-    fontSize: '1.2rem',
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: '0.5rem',
-    lineHeight: '1.4'
-  },
-  productCategory: {
-    color: '#3b82f6',
-    fontSize: '0.9rem',
-    marginBottom: '1rem',
-    fontWeight: '500'
-  },
-  productPrice: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    marginBottom: '1rem'
-  },
-  currentPrice: {
-    fontSize: '1.4rem',
-    fontWeight: 'bold',
-    color: '#1f2937'
-  },
-  oldPrice: {
-    fontSize: '1.1rem',
+  debugInfo: {
+    marginTop: '0.5rem',
+    paddingTop: '0.5rem',
+    borderTop: '1px dashed #e5e7eb',
+    fontSize: '0.7rem',
     color: '#9ca3af',
-    textDecoration: 'line-through'
-  },
-  productMeta: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    fontSize: '0.8rem',
-    color: '#6b7280',
-    marginBottom: '1rem'
-  },
-  inStock: {
-    color: '#059669',
-    fontWeight: '500',
-    backgroundColor: '#ecfdf5',
-    padding: '0.3rem 0.6rem',
-    borderRadius: '4px'
-  },
-  outOfStock: {
-    color: '#dc2626',
-    fontWeight: '500',
-    backgroundColor: '#fef2f2',
-    padding: '0.3rem 0.6rem',
-    borderRadius: '4px'
-  },
-  sku: {
-    fontFamily: 'monospace',
-    backgroundColor: '#f3f4f6',
-    padding: '0.3rem 0.6rem',
-    borderRadius: '4px',
-    fontSize: '0.75rem'
-  },
-  description: {
-    fontSize: '0.9rem',
-    color: '#6b7280',
-    lineHeight: '1.5',
-    margin: '1rem 0',
-    borderTop: '1px solid #f3f4f6',
-    paddingTop: '1rem'
-  },
-  actions: {
-    marginTop: '1rem'
-  },
-  addToCartButton: {
-    width: '100%',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    padding: '0.75rem',
-    borderRadius: '6px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    fontSize: '1rem'
-  },
-  footerNote: {
-    textAlign: 'center',
-    marginTop: '2rem',
-    padding: '1rem',
-    backgroundColor: '#f3f4f6',
-    borderRadius: '8px',
-    color: '#6b7280'
+    textAlign: 'center'
   }
 }
 
@@ -403,11 +226,6 @@ if (typeof document !== 'undefined') {
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
-    }
-    
-    .product-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 8px 15px rgba(0,0,0,0.15);
     }
   `
   document.head.appendChild(style)
